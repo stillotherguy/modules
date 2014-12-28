@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:util="http://www.springframework.org/schema/util" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:sec="http://www.springframework.org/schema/security"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+		http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.1.xsd">
+
+	<util:list id="securityFilters">
+		<ref bean="concurrentSessionFilter"/>
+		<ref bean="securityContextFilter"/>
+		<ref bean="servletSupportFilter"/>
+		<ref bean="logoutFilter"/>
+		<ref bean="formLoginFilter"/>
+		<ref bean="sessionManagementFilter"/>
+		<ref bean="exceptionTranslationFilter"/>
+		<ref bean="filterSecurityInterceptor"/>
+	</util:list>
+
+	<bean id="concurrentSessionFilter" class="org.springframework.security.web.session.ConcurrentSessionFilter"
+		p:sessionRegistry-ref="sessionRegistry" p:expiredUrl="/login.jsp" />
+
+	<bean id="sessionRegistry" class="org.springframework.security.core.session.SessionRegistryImpl" />
+
+	<bean id="securityContextFilter" class="org.springframework.security.web.context.SecurityContextPersistenceFilter"
+		p:securityContextRepository-ref="securityContextRepository" />
+	<bean id="securityContextRepository" class="org.springframework.security.web.context.HttpSessionSecurityContextRepository" />
+
+	<bean id="servletSupportFilter" class="org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter" />
+
+	<bean id="logoutFilter" class="org.springframework.security.web.authentication.logout.LogoutFilter" p:filterProcessesUrl="/logout.action">
+		<constructor-arg name="logoutSuccessUrl" value="/login.jsp" />
+		<constructor-arg name="handlers" ref="logoutHandlers" />
+	</bean>
+	<util:list id="logoutHandlers">
+		<bean class="com.weaver.teams.core.authentication.TeamsSecurityContextLogoutHandler" p:sessionRegistry-ref="sessionRegistry" />
+	</util:list>
+
+	<bean id="formLoginFilter" class="com.weaver.teams.core.authentication.TeamsFormLoginFilter" p:postOnly="true"
+		p:authenticationProcessors-ref="authenticationProcessors" p:authenticationManager-ref="authenticationManager"
+		p:authenticationFailureHandler-ref="loginFailureHandler" p:authenticationSuccessHandler-ref="loginSuccessHandler"
+		p:sessionAuthenticationStrategy-ref="sessionStrategy" />
+
+	<bean id="loginSuccessHandler" class="com.weaver.teams.core.authentication.LoginSuccessHandler"
+		p:defaultTargetUrl="/index.jsp" p:redirectStrategy-ref="redirectStrategy"/>
+
+	<bean id="redirectStrategy" class="com.weaver.teams.core.authentication.TeamsRedirectStrategy" p:defaultTargetUrl="/index.jsp" />
+
+	<bean id="loginFailureHandler" class="org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler"
+		p:defaultFailureUrl="/login.jsp" />
+
+	<util:list id="authenticationProcessors">
+		<bean class="com.weaver.teams.core.authentication.CaptchaAuthenticationProcessor" />
+		<bean class="com.weaver.teams.core.authentication.UsbKeyAuthenticationProcessor" />
+		<bean class="com.weaver.teams.core.authentication.DynamicPasswdAuthenticationProcessor" />
+	</util:list>
+
+	<bean id="sessionManagementFilter" class="org.springframework.security.web.session.SessionManagementFilter">
+		<constructor-arg name="securityContextRepository" ref="securityContextRepository" />
+		<constructor-arg name="sessionStrategy" ref="sessionStrategy" />
+		<property name="invalidSessionStrategy" ref="invalidSessionStrategy" />
+	</bean>
+
+	<bean id="invalidSessionStrategy" class="org.springframework.security.web.session.SimpleRedirectInvalidSessionStrategy">
+		<constructor-arg name="invalidSessionUrl" value="/login.jsp" />
+	</bean>
+
+	<bean id="sessionStrategy" class="com.weaver.teams.core.authentication.TeamsConcurrentSessionControlStrategy">
+		<constructor-arg name="sessionRegistry" ref="sessionRegistry" />
+	</bean>
+
+	<bean id="exceptionTranslationFilter" class="org.springframework.security.web.access.ExceptionTranslationFilter"
+		p:authenticationEntryPoint-ref="authenticationEntryPoint" p:accessDeniedHandler-ref="accessDeniedHandler" />
+
+	<bean id="authenticationEntryPoint" class="org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint"
+		p:loginFormUrl="/login.jsp" />
+
+	<bean id="accessDeniedHandler" class="org.springframework.security.web.access.AccessDeniedHandlerImpl"
+		p:errorPage="/errors/accessDenied.jsp" />
+
+	<bean id="filterSecurityInterceptor" class="org.springframework.security.web.access.intercept.FilterSecurityInterceptor"
+		p:authenticationManager-ref="authenticationManager" p:accessDecisionManager-ref="accessDecisionManager"
+		p:securityMetadataSource-ref="securityMetadataSource" p:validateConfigAttributes="false" />
+
+	<bean id="accessDecisionManager" class="org.springframework.security.access.vote.AffirmativeBased"
+		p:allowIfAllAbstainDecisions="false" p:decisionVoters-ref="decisionVoters" />
+
+	<util:list id="decisionVoters">
+		<bean class="org.springframework.security.access.vote.RoleVoter" p:rolePrefix="ROLE_" />
+		<bean class="org.springframework.security.access.vote.AuthenticatedVoter" />
+	</util:list>
+
+	<bean id="authenticationManager" class="org.springframework.security.authentication.ProviderManager">
+		<constructor-arg name="providers">
+			<list>
+				<ref bean="teamsAuthenticationProvider" />
+			</list>
+		</constructor-arg>
+	</bean>
+
+	<bean id="teamsAuthenticationProvider" class="com.weaver.teams.core.authentication.TeamsAuthenticationProvider"
+		p:passwordEncoder-ref="passwordEncoder" p:userManager-ref="userManager" p:tenantManager-ref="tenantManager" />
+
+	<bean id="jasyptPasswordEncryptor" class="org.jasypt.util.password.StrongPasswordEncryptor" />
+	
+	<bean id="passwordEncoder" class="org.jasypt.springsecurity3.authentication.encoding.PasswordEncoder"
+		p:passwordEncryptor-ref="jasyptPasswordEncryptor"/>
+	
+	<bean id="securityMetadataSource" class="com.weaver.teams.core.authentication.interceptor.UrlSecurityMetadataSource" />
+
+	<bean id="loggerListener" class="com.weaver.teams.core.authentication.LoggerListener" />
+		
+</beans>

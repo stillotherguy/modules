@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:util="http://www.springframework.org/schema/util" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:security="http://www.springframework.org/schema/security"
+	xsi:schemaLocation="http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-3.2.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+		http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-4.0.xsd">
+
+	<bean id="securityFilter" class="org.springframework.security.web.FilterChainProxy">
+		<constructor-arg>
+			<util:list>
+				<security:filter-chain pattern="/favicon.ico" filters="none" />
+				<security:filter-chain pattern="/**.html" filters="none" />
+				<security:filter-chain pattern="/static/**" filters="none" />
+				<security:filter-chain pattern="/site/**" filters="none" />
+				<security:filter-chain pattern="/login**" filters="none" />
+				<security:filter-chain pattern="/login/**" filters="none" />
+				<security:filter-chain pattern="/signup**" filters="none" />
+				<security:filter-chain pattern="/signup/**" filters="none" />
+				<security:filter-chain pattern="/join**" filters="none" />
+				<security:filter-chain pattern="/join/**" filters="none" />
+				<security:filter-chain pattern="/remote/**" filters="none" />
+				<security:filter-chain pattern="/index.xhtml" filters="securityContextFilter,rememberMeFilter" />
+				<security:filter-chain pattern="/**"
+					filters="concurrentSessionFilter,securityContextFilter,servletSupportFilter,logoutFilter,
+					formLoginFilter,rememberMeFilter,sessionManagementFilter,exceptionTranslationFilter,filterSecurityInterceptor" />
+			</util:list>
+		</constructor-arg>
+	</bean>
+	
+	<bean id="concurrentSessionFilter" class="org.springframework.security.web.session.ConcurrentSessionFilter"
+		p:sessionRegistry-ref="sessionRegistry" p:expiredUrl="${security.login}" />
+
+	<bean id="sessionRegistry" class="com.weaver.teams.security.session.TeamsSessionRegistry" />
+
+	<bean id="securityContextFilter" class="org.springframework.security.web.context.SecurityContextPersistenceFilter">
+		<constructor-arg  name="repo" ref="securityContextRepository" />
+	</bean>
+	
+	<bean id="securityContextRepository" class="com.weaver.teams.security.session.TeamsSessionSecurityContextRepository" 
+		p:sessionRegistry-ref="sessionRegistry" />
+
+	<bean id="servletSupportFilter" class="org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter" />
+
+	<bean id="logoutFilter" class="org.springframework.security.web.authentication.logout.LogoutFilter" p:filterProcessesUrl="/logout">
+		<constructor-arg name="logoutSuccessUrl" value="${security.login}" />
+		<constructor-arg name="handlers" ref="logoutHandlers" />
+	</bean>
+	<util:list id="logoutHandlers">
+		<bean class="org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler" />
+	</util:list>
+
+	<bean id="formLoginFilter" class="com.weaver.teams.security.login.TeamsFormLoginFilter" p:postOnly="true"
+		p:authenticationProcessors-ref="authenticationProcessors" p:authenticationManager-ref="authenticationManager"
+		p:authenticationFailureHandler-ref="loginFailureHandler" p:authenticationSuccessHandler-ref="loginSuccessHandler"
+		p:rememberMeServices-ref="rememberMeServices" p:sessionAuthenticationStrategy-ref="sessionStrategy" />
+		
+	<bean id="rememberMeFilter" class="com.weaver.teams.security.authentication.TeamsRememberMeFilter">
+		<constructor-arg name="authenticationManager" ref="authenticationManager" />
+		<constructor-arg name="rememberMeServices" ref="rememberMeServices" />
+		<property name="authenticationSuccessHandler" ref="loginSuccessHandler" />
+		<property name="sessionStrategy" ref="sessionStrategy" />
+	</bean>
+	
+	<bean id="rememberMeServices" class="com.weaver.teams.security.authentication.TeamsRememberMeServices"
+		p:parameter="autoLogin" p:tenantManager-ref="tenantManager" p:userManager-ref="userManager" />
+
+	<bean id="loginSuccessHandler" class="com.weaver.teams.security.login.LoginSuccessHandler" 
+		p:redirectStrategy-ref="redirectStrategy" p:alwaysUseDefaultTargetUrl="true" 
+		p:defaultTargetUrl="${security.home}"/>
+	<bean id="redirectStrategy" class="com.weaver.teams.security.login.LoginSuccessRedirect"/>
+
+	<bean id="loginFailureHandler" class="com.weaver.teams.security.authentication.TeamsAuthenticationFailureHandler"
+		p:defaultFailureUrl="${security.login}" />
+
+	<util:list id="authenticationProcessors">
+		<bean class="com.weaver.teams.security.authentication.CaptchaAuthentication" />
+		<bean class="com.weaver.teams.security.authentication.UsbKeyAuthentication" />
+		<bean class="com.weaver.teams.security.authentication.DynamicPasswdAuthentication" />
+	</util:list>
+
+	<bean id="sessionManagementFilter" class="com.weaver.teams.security.session.TeamsSessionManagementFilter">
+		<constructor-arg name="securityContextRepository" ref="securityContextRepository" />
+		<constructor-arg name="sessionStrategy" ref="sessionStrategy" />
+		<property name="invalidSessionStrategy" ref="invalidSessionStrategy" />
+	</bean>
+
+	<bean id="invalidSessionStrategy" class="com.weaver.teams.security.session.TeamsInvalidSessionStrategy">
+		<constructor-arg name="invalidSessionUrl" value="${security.login}" />
+	</bean>
+
+	<bean id="sessionStrategy" class="com.weaver.teams.security.session.TeamsConcurrentSessionControlStrategy">
+		<constructor-arg name="sessionRegistry" ref="sessionRegistry" />
+	</bean>
+
+	<bean id="exceptionTranslationFilter" class="org.springframework.security.web.access.ExceptionTranslationFilter"
+		p:authenticationEntryPoint-ref="authenticationEntryPoint" p:accessDeniedHandler-ref="accessDeniedHandler" />
+
+	<bean id="authenticationEntryPoint" class="org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint">
+		<constructor-arg name="loginFormUrl" value="${security.login}" />
+	</bean>
+
+	<bean id="accessDeniedHandler" class="org.springframework.security.web.access.AccessDeniedHandlerImpl"/>
+
+	<bean id="filterSecurityInterceptor" class="org.springframework.security.web.access.intercept.FilterSecurityInterceptor"
+		p:authenticationManager-ref="authenticationManager" p:accessDecisionManager-ref="accessDecisionManager"
+		p:securityMetadataSource-ref="securityMetadataSource" p:validateConfigAttributes="false" />
+
+	<bean id="accessDecisionManager" class="org.springframework.security.access.vote.AffirmativeBased"
+		p:allowIfAllAbstainDecisions="false" p:decisionVoters-ref="decisionVoters" />
+
+	<util:list id="decisionVoters">
+		<bean class="org.springframework.security.access.vote.RoleVoter" p:rolePrefix="ROLE_" />
+		<bean class="org.springframework.security.access.vote.AuthenticatedVoter" />
+	</util:list>
+
+	<bean id="authenticationManager" class="org.springframework.security.authentication.ProviderManager">
+		<constructor-arg name="providers">
+			<list>
+				<ref bean="teamsAuthenticationProvider" />
+				<ref bean="rememberMeAuthenticationProvider" />
+			</list>
+		</constructor-arg>
+	</bean>
+
+	<bean id="teamsAuthenticationProvider" class="com.weaver.teams.security.authentication.TeamsAuthenticationProvider" />
+		
+	<bean id="rememberMeAuthenticationProvider" class="com.weaver.teams.security.authentication.TeamsRememberMeAuthenticationProvider" />
+
+	<bean id="jasyptPasswordEncryptor" class="org.jasypt.util.password.StrongPasswordEncryptor" />
+	
+	<bean id="passwordEncoder" class="com.weaver.teams.security.authentication.PasswordEncoder"
+		p:passwordEncryptor-ref="jasyptPasswordEncryptor"/>
+
+	<bean id="securityMetadataSource" class="com.weaver.teams.security.interceptor.UrlSecurityMetadataSource" />
+
+	<bean id="loggerListener" class="com.weaver.teams.security.authentication.LoggerListener" />
+		
+</beans>
