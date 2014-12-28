@@ -1,2 +1,2 @@
-此仓库作为练习专用!
-this repository is only for practice's sake!
+securityorigin为spring security的一个集成jar，后续会加入sso cas的版本
+
